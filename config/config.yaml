@@ -1,0 +1,53 @@
+%YAML:1.0
+
+# ======================= basic =======================
+# data directory
+image_dir: "/Users/huiguo/Desktop/south-building/south-building/images"
+output_dir: "/Users/huiguo/Desktop/south-building/south-building/images"
+
+# pinhole camera parameters
+camera.fx: 3648
+camera.fy: 3648
+camera.cx: 2736
+camera.cy: 1824
+camera.k1: 0.0
+camera.k2: 0.0
+camera.p1: 0.0
+camera.p2: 0.0
+
+# ============= feature extraction ===================
+# feature type
+feature_type: 0          # 0: SIFT; 1: SURF; 2: ORB
+# maximum image size (If image exceeds this size, then feature extraction will be performed on the down-sampled image)
+max_image_size: 3000
+# maximum number of extracted features
+max_num_features: 10000
+
+# =================== matching =======================
+# match type:
+match_type: 0           # 0 for sequential match, 1 for all cadidate frames
+sequential_overlap: 3   # if using sequential, the overlap
+maximum_overlap: 5      # maximum match images for each frame. If using sequential match, the maximum_overlap should be larger than sequential_overlap
+# ratio test
+ratio_thresh: 0.7
+# distance thresh (If descriptor is normalized, then distance between two descriptors is in range [0.0, 2.0])
+distance_thresh: 0.7
+# The matching is considered successful only if the number of matches is greater than min_num_matches.
+min_num_matches: 15
+# if enable cross check. 0: not use cross check, 1: use cross check
+cross_check: 1
+
+# ==================== initilise ======================
+
+
+# ==================== register =======================
+
+
+# ================== triangulation ======================
+
+
+# ===================== optimizing =======================
+# frames between each local BA optimization
+localOptInterval: 1
+# when the model size increases by a certain ratio, then perform global BA
+globalOptRatio: 1.5
