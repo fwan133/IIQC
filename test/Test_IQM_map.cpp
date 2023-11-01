@@ -8,6 +8,8 @@
 #include <pcl/io/ply_io.h>
 #include <pcl/point_types.h>
 
+#include <geometry_msgs/PoseArray.h>
+
 #include "IQM_octomap/IQM_octree.h"
 #include "flight_control/captured_frame_collection.h"
 
@@ -80,8 +82,25 @@ void publishPoseAsArrowArray(ros::Publisher &marker_array_pub, visualization_msg
     marker_array_pub.publish(marker_array);
 }
 
-void publishPoseArray(){
+void publishPoseArray(ros::Publisher &pose_array_pub, geometry_msgs::PoseArray &pose_array, Eigen::Isometry3d &imagePose){
+    geometry_msgs::Pose pose;
 
+    double angle = -90.0 * M_PI / 180.0;
+    Eigen::Matrix3d rotationMatrix;
+    rotationMatrix = Eigen::AngleAxisd(angle, Eigen::Vector3d::UnitY());
+    imagePose.rotate(rotationMatrix);
+    Eigen::Vector3d img_position = imagePose.translation();
+    pose.position.x = img_position.x();
+    pose.position.y = img_position.y();
+    pose.position.z = img_position.z();
+    Eigen::Quaterniond img_orientation(imagePose.linear());
+    pose.orientation.x = img_orientation.x();
+    pose.orientation.y = img_orientation.y();
+    pose.orientation.z = img_orientation.z();
+    pose.orientation.w = img_orientation.w();
+
+    pose_array.poses.push_back(pose);
+    pose_array_pub.publish(pose_array);
 }
 
 int main(int argc, char **argv) {
@@ -89,7 +108,7 @@ int main(int argc, char **argv) {
     std::string cloud_filename = "/home/feng/Code/catkin_ros/src/IIQC/data/prior_model/GirderBridgeSim/PointCloud.ply";
     std::string imgs_folder = "/home/feng/Code/catkin_ros/src/IIQC/data/CapturedData/Simulation/GirderBridge/girder_bridge_pier";
     double fx = 3648, fy = 3648, cx = 2736, cy = 1824;
-    double size = 0.1;
+    double size = 0.05;
     double blur_threshold = 0.8;
     double exposure_min = 20;
     double exposure_max = 232;
@@ -130,14 +149,15 @@ int main(int argc, char **argv) {
         octomap_pub.publish(map_msg);
     };
     // Image Poses using arrow marker
-    ros::Publisher marker_array_pub = nh.advertise<visualization_msgs::MarkerArray>("marker_array", 1);
-    visualization_msgs::MarkerArray marker_array;
+    ros::Publisher poseArrayPublisher = nh.advertise<geometry_msgs::PoseArray>("pose_array_topic", 10);
+    geometry_msgs::PoseArray poseArray;
+    poseArray.header.frame_id = "map";
 
     /// Update the Image
     for (int index = 1; index <= frame_collection.GetSize(); index++){
         /// Generate a IQM image object
         Eigen::Isometry3d T_w_c = frame_collection.getFrameByIndex(index).GetEstimatedPose().cvt2TransformMatrix() * T_body_c;
-        IQMImage IQM_img("/home/feng/Code/catkin_ros/src/IIQC/data/CapturedData/Simulation/GirderBridge/girder_bridge_pier/1_colour.jpg");
+        IQMImage IQM_img("/home/feng/Code/catkin_ros/src/IIQC/data/CapturedData/Simulation/GirderBridge/girder_bridge_pier/1_colour.jpg", index);
         IQM_img.setPose(Pose6d(T_w_c));
         IQM_img.setIntrinsicParas(cx, cy, fx, fy);
         IQM_img.evaluateBPM(patch_size);
@@ -146,8 +166,9 @@ int main(int argc, char **argv) {
         IQM_octree.refreshTreeColor(octomap::ColorType::MULTIPLE);
 
         /// Publish camera pose
-        publishPoseAsArrowArray(marker_array_pub, marker_array, T_w_c, index);
-        std::cout << "[Image]: " << index << std::endl;
+        poseArray.header.stamp=ros::Time::now();
+        publishPoseArray(poseArrayPublisher, poseArray, T_w_c);
+        std::cout << "[Render]: Image " << index << " updated.\n";
 
         /// Publish the map
         map_msg.header.stamp=ros::Time::now();

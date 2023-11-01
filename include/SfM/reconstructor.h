@@ -375,7 +375,7 @@ namespace sfm {
                                     pcl::PointCloud<pcl::PointXYZ>::Ptr &registered_cloud) {
             Eigen::Isometry3d T_gt_est;
             double scale_factor;
-            icp_solver->registerWithScaleGICP(src_cloud, registered_cloud, T_gt_est, scale_factor);
+            icp_solver->registerWithGICP(src_cloud, registered_cloud, T_gt_est, scale_factor);
 
             std::cout << "[Align2Cloud]: Success with " << registered_cloud->size() << "/" << src_cloud->size()
                       << " points. The scaling factor is " << scale_factor << ". The SIM3 transformation matrix is \n"

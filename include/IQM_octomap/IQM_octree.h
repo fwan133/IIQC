@@ -46,13 +46,13 @@ namespace octomap {
                     return;
                 }
 
-                std::map<std::string, float> qualified_result;
-                std::map<std::string, float> unqualified_result;
+                std::unordered_map<int, float> qualified_result;
+                std::unordered_map<int, float> unqualified_result;
                 for (const auto &pair: ssd_map) {
                     if (pair.second > SSD_threshold) {
-                        unqualified_result.insert(pair);
+                        unqualified_result[pair.first] = pair.second;
                     } else {
-                        qualified_result.insert(pair);
+                        qualified_result[pair.first] = pair.second;
                     }
                 }
 
@@ -99,7 +99,7 @@ namespace octomap {
             bool is_updated;
             float blur_probability_value;
             uint8_t exposure_intensity_value;
-            std::map<std::string, float> ssd_map;
+            std::unordered_map<int, float> ssd_map;
             uint8_t IQM_result_level = 0;
         };
 
@@ -143,26 +143,28 @@ namespace octomap {
         }
 
         /// Update the ssd of node
-        void updateNodeSSD(std::string image_id, float ssd) {
+        void updateNodeSSD(int image_id, float ssd) {
             auto it = IQM_value.ssd_map.find(image_id);
             if (it != IQM_value.ssd_map.end()) { // Found the existing image_id
-                if (it->second > ssd) { it->second = ssd; }
+                if (ssd < it->second) it->second = ssd;
             } else {
-                IQM_value.ssd_map.insert({image_id, ssd});
+//                std::cout << "[Add observation] \n";
+                IQM_value.ssd_map[image_id]=ssd;
             }
         }
 
         /// Update IQM of node
-        void updateNodeIQM(float blur_probability, uint8_t exposure_intensity, std::string image_id, float ssd) {
+        void updateNodeIQM(float blur_probability, uint8_t exposure_intensity, int image_id, float ssd) {
             if (!IQM_value.is_updated) {          // Update for the first time
                 IQM_value.blur_probability_value = blur_probability;
                 IQM_value.exposure_intensity_value = exposure_intensity;
-                IQM_value.ssd_map.insert(std::make_pair(image_id, ssd));
+                IQM_value.ssd_map[image_id]= ssd;
                 IQM_value.is_updated = true;
             } else {                                // Update
                 updateNodeBlurProbability(blur_probability);
                 updateNodeExposureIntensity(exposure_intensity);
                 updateNodeSSD(image_id, ssd);
+                IQM_value.is_updated = true;
             }
         };
 
@@ -183,8 +185,15 @@ namespace octomap {
                 }
                 return minValue;
             }
-            return 0;
         };
+
+        std::list<float> getSSD() const {
+            std::list<float> SSDs;
+            for (auto id_ssd: IQM_value.ssd_map) {
+                SSDs.push_back(id_ssd.second);
+            }
+            return SSDs;
+        }
 
         /// Update IQM colour of a node
         void updateIQMColour(float blur_probability_threshold, uint8_t exposure_threshold_min,
@@ -317,7 +326,7 @@ namespace octomap {
 
         /// Update the IQM value of a node
         bool updateNodeIQM(float x, float y, float z, float blur_probability, uint8_t exposure_intensity,
-                           std::string image_id, float ssd) {
+                           int image_id, float ssd) {
             OcTreeKey key;
             if (this->coordToKeyChecked(point3d(x, y, z), key)) {
                 IQMOcTreeNode *node;
@@ -333,13 +342,14 @@ namespace octomap {
         bool updateIQMfromImage(IQMImage IQM_image, double maximum_depth) {
             if (IQM_image.checkValidity()) {
                 // Obtain reference
-                cv::Mat color_img = IQM_image.getColorImg();
-                cv::Mat blur_map = IQM_image.getBPM();
-                cv::Mat exposure_map = IQM_image.getEIM();
+                cv::Mat *color_img = const_cast<cv::Mat *>(IQM_image.getColorImg());
+                cv::Mat *blur_map = const_cast<cv::Mat *>(IQM_image.getBPM());
+                cv::Mat *exposure_map = const_cast<cv::Mat *>(IQM_image.getEIM());
 
                 // Go through each pixel
-                for (int u = 0; u < IQM_image.imgSize()[0]; ++u) {
-                    for (int v = 0; v < IQM_image.imgSize()[1]; ++v) {
+                for (int u = 0; u < IQM_image.imgSize().width; u += 5) {
+                    for (int v = 0; v < IQM_image.imgSize().height; v += 5) {
+//                        std::cout << "\n[Pixel Coordinate]: The pixel location is (" << u << ", " << v << ")\n";
                         // Obtain the start point and direction
                         Eigen::Vector3d point = IQM_image.backProjection(u, v);
                         Eigen::Vector3d direction_ = point - IQM_image.getPose().position;
@@ -350,8 +360,8 @@ namespace octomap {
                         octomap::point3d direction(direction_.x(), direction_.y(), direction_.z());
                         octomap::point3d end;
                         if (this->castRay(origin, direction, end, true, maximum_depth)) {
-                            this->updateNodeIQM(end.x(), end.y(), end.z(), blur_map.at<float>(v, u),
-                                                exposure_map.at<int8_t>(v, u), IQM_image.getImageID(),
+                            this->updateNodeIQM(end.x(), end.y(), end.z(), blur_map->at<float>(v, u),
+                                                exposure_map->at<int8_t>(v, u), IQM_image.getImageID(),
                                                 IQM_image.estimateSSD(end.x(), end.y(), end.z()));
                         }
                     }
@@ -365,12 +375,17 @@ namespace octomap {
 
         /// Update IQM colour of a node
         bool
-        updateNodeIQMColor(float x, float y, float z, IQMOcTreeNode::IQM::IQMResultType IQM_result_type = IQMOcTreeNode::IQM::IQMResultType::MULTIPLE) {
+        updateNodeIQMColor(float x, float y, float z,
+                           IQMOcTreeNode::IQM::IQMResultType IQM_result_type = IQMOcTreeNode::IQM::IQMResultType::MULTIPLE) {
             OcTreeKey key;
             if (this->coordToKeyChecked(point3d(x, y, z), key)) {
                 IQMOcTreeNode *node;
                 node = this->search(key);
-                node->updateIQMColour(metrics_threshold.blur_probability_threshold,metrics_threshold.exposure_threshold_min,metrics_threshold.exposure_threshold_max,metrics_threshold.captured_times_threshold,metrics_threshold.SSD_threshold, IQM_result_type);
+                node->updateIQMColour(metrics_threshold.blur_probability_threshold,
+                                      metrics_threshold.exposure_threshold_min,
+                                      metrics_threshold.exposure_threshold_max,
+                                      metrics_threshold.captured_times_threshold, metrics_threshold.SSD_threshold,
+                                      IQM_result_type);
                 return true;
             } else {
                 return false;
@@ -379,8 +394,6 @@ namespace octomap {
 
         /// Refresh the OcTree Color
         bool refreshTreeColor(octomap::ColorType color_type) {
-            std::cout << color_type << std::endl;
-
             std::map<std::string, ColorOcTreeNode::Color> semantic_color_map;
 
             for (IQMOcTree::leaf_iterator it = this->begin_leafs(), end = this->end_leafs(); it != end; ++it) {
@@ -416,13 +429,39 @@ namespace octomap {
                                                 IQMOcTreeNode::IQM::IQMResultType::MULTIPLE);
                             break;
                     }
+
+                    /// Print the node info
+//                    if (it->getIQM().is_updated && it->getIQM().ssd_map.size()>=2) printNodeInfo(it);
                 }
             }
             return true;
         }
 
-
         /// Print node info
+        void printNodeInfo(IQMOcTree::leaf_iterator it) {
+            std::string occupancy_status;
+            if (this == nullptr) {
+                occupancy_status = "Unknown";
+                std::cout << "Centre location: " << ". Occupancy status: "
+                          << occupancy_status << std::endl;
+            } else {
+                std::cout << "[Node Info] Location: " << keyToCoord(it.getKey()) << ". Colour: " << it->getColor()
+                          << ". Semantic Label: " << it->getSemanticLabel() << "." << std::endl;
+
+                if (it->getIQM().is_updated) {
+                    std::cout << "BP: "
+                              << it->getIQM().blur_probability_value << ". EI: "
+                              << (int) it->getIQM().exposure_intensity_value << ". Captured times: "
+                              << it->getIQM().ssd_map.size() << ". SSD value: ";
+                    for (auto ssd: it->getSSD()) {
+                        std::cout << ssd << " ";
+                    }
+                    std::cout << ". IQM Color Level: "
+                              << (int) it->IQM_value.IQM_result_level << "." << std::endl;
+                }
+            }
+        }
+
         void printNodeInfo(float x, float y, float z) {
             std::cout << "The info of IQMOcTree node at (" << x << ", " << y << ", " << z << ") is as follows:"
                       << std::endl;
@@ -446,7 +485,8 @@ namespace octomap {
                         std::cout << "Image Quality Metric: " << node->getUpdateStatus() << ". Blur Probability: "
                                   << node->getIQM().blur_probability_value << ". Exposure Intensity: "
                                   << (int) node->getIQM().exposure_intensity_value << ". Coverage Times:"
-                                  << node->getIQM().ssd_map.size() << ". Minimum SSD: " << node->getMinSSD() << ". IQM Color Level: " << (int)node->IQM_value.IQM_result_level
+                                  << node->getIQM().ssd_map.size() << ". Minimum SSD: " << node->getMinSSD()
+                                  << ". IQM Color Level: " << (int) node->IQM_value.IQM_result_level
                                   << std::endl;
                     } else {
                         std::cout << "Image Quality Metric: " << node->getUpdateStatus() << "." << std::endl;

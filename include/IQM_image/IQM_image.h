@@ -20,8 +20,8 @@ class IQMImage {
 
 public:
 
-    IQMImage(std::string img_path){
-        image_id = img_path;
+    IQMImage(std::string img_path, int id){
+        image_id = id;
         cv::Mat img = cv::imread(img_path);
         if(img.empty()) std::cerr << "Error: Unable to load image." << std::endl;
         color_image = img;
@@ -31,7 +31,7 @@ public:
         exposure_intensity_map = cv::Mat(color_image.cols, color_image.rows, CV_8UC1);
     }
 
-    IQMImage(cv::Mat color_img, std::string id) {
+    IQMImage(cv::Mat color_img, int id) {
         image_id = id;
         color_image = color_img;
         cv::cvtColor(color_image, gray_image, cv::COLOR_BGR2GRAY);
@@ -130,8 +130,8 @@ public:
         isROICalculated = true;
     }
 
-    cv::MatSize imgSize() {
-        return color_image.size;
+    cv::Size imgSize() {
+        return color_image.size();
     }
 
     void evaluateEIM(uint patch_size) {
@@ -241,19 +241,19 @@ public:
     float estimateSSD(float x, float y, float z) {
         // Transform to Image Frame
         Eigen::Vector3d point = pose.cvt2TransformMatrix().inverse() * Eigen::Vector3d(x, y, z);
-        return point.z() / intrinsic_paras.fx;
+        return point.z()*1000 / intrinsic_paras.fx;
     }
 
-    inline const cv::Mat getColorImg() const { return color_image; }
+    inline const cv::Mat* getColorImg() const { return &color_image; }
 
-    inline const cv::Mat getBPM() const { return blur_probability_map; }
+    inline const cv::Mat* getBPM() const { return &blur_probability_map; }
 
-    inline const cv::Mat getEIM() const { return exposure_intensity_map; }
+    inline const cv::Mat* getEIM() const { return &exposure_intensity_map; }
 
-    inline const std::string getImageID() const { return image_id; }
+    inline const int getImageID() const { return image_id; }
 
 protected:
-    std::string image_id;
+    int image_id;
     cv::Mat color_image;
     cv::Mat gray_image;
     Pose6d pose;

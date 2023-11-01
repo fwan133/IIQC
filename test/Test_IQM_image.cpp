@@ -2,7 +2,7 @@
 
 int main(int argc, char **argv) {
     // Load the octomap
-    std::string filename = "/home/feng/Code/catkin_ros/src/IIQC/data/CapturedData/Simulation/GirderBridge/girder_bridge_pier/1_colour.jpg";
+    std::string filename = "/home/feng/Code/catkin_ros/src/IIQC/data/CapturedData/Simulation/GirderBridge/girder_bridge_pier/3_colour.jpg";
     cv::Mat color_img = cv::imread(filename);
 
     IQMImage IQM_image(color_img, "1");
