@@ -108,10 +108,9 @@ public:
 
         /// Step 2: Estimate the final alignment using Scale-GICP
         Eigen::Matrix4d T_second;
-        ScaleEstimationSVD<pcl::PointXYZ, pcl::PointXYZ, double> estiS;
-        pcl::registration::TransformationEstimation<pcl::PointXYZ, pcl::PointXYZ, double> *pS = &estiS;
-        IterativeClosestPointScale<pcl::PointXYZ, pcl::PointXYZ, double>::Ptr pScale(
-                new IterativeClosestPointScale<pcl::PointXYZ, pcl::PointXYZ, double>(pS));
+        ScaleEstimationSVD<pcl::PointXYZ, pcl::PointXYZ, double>::Ptr pestiS = std::make_shared<ScaleEstimationSVD<pcl::PointXYZ, pcl::PointXYZ, double>>();
+        pcl::registration::TransformationEstimation<pcl::PointXYZ, pcl::PointXYZ, double>::Ptr pS = pestiS;
+        IterativeClosestPointScale<pcl::PointXYZ, pcl::PointXYZ, double>::Ptr pScale (new IterativeClosestPointScale<pcl::PointXYZ, pcl::PointXYZ, double>(pS));
         pScale->setInputSource(aligned_cloud);
         pScale->setInputTarget(ground_truth_cloud);
 

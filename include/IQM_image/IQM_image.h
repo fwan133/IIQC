@@ -13,6 +13,8 @@
 
 #include "pose6d.h"
 
+#include "YoloInference.h"
+
 class IQMImage {
     struct IntrinsicParas {
         double cx, cy, fx, fy;
@@ -121,11 +123,23 @@ public:
     }
 
     void extractROI(std::string model_path) {
+        // classes.txt is a dummy placeholder
+        mpInference = std::make_shared<Inference>(model_path, cv::Size(640, 640), "classes.txt", false);
         /// Load the model
         auto net = cv::dnn::readNet(model_path);
 
+        /// Run yolo inference
+        cv::Mat mask;
+        std::vector<Detection> output = mpInference->runInference(color_image, mask);
 
+        cv::imshow("test yolo mask", mask);
+        cv::waitKey(0);
+        cv::destroyAllWindows();
 
+        //
+        bool FlagUseMask = true;
+
+        if(cv::countNonZero(mask)==0) FlagUseMask = false;
 
         isROICalculated = true;
     }
@@ -266,6 +280,8 @@ protected:
     bool isROICalculated = false;
     bool isBLurMapCalculated = false;
     bool isExposureMapCalculated = false;
+
+    std::shared_ptr<Inference> mpInference = nullptr;
 };
 
 
