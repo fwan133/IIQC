@@ -132,14 +132,12 @@ public:
         cv::Mat mask;
         std::vector<Detection> output = mpInference->runInference(color_image, mask);
 
-        cv::imshow("test yolo mask", mask);
+        cv::Mat resized;
+        cv::resize(mask, resized, cv::Size(1200, 800));
+
+        cv::imshow("test yolo mask", resized);
         cv::waitKey(0);
         cv::destroyAllWindows();
-
-        //
-        bool FlagUseMask = true;
-
-        if(cv::countNonZero(mask)==0) FlagUseMask = false;
 
         isROICalculated = true;
     }

@@ -49,7 +49,6 @@
 #include <pcl/registration/transformation_estimation_point_to_plane_lls.h>
 #include <pcl/registration/transformation_estimation_svd_scale.h>
 #include <pcl/registration/transformation_estimation_symmetric_point_to_plane_lls.h>
-#include <pcl/memory.h> // for dynamic_pointer_cast, pcl::make_shared, shared_ptr
 
 #include "RotationEstimationSVD.h"
 
@@ -147,7 +146,7 @@ public:
   using Matrix4 = typename Registration<PointSource, PointTarget, Scalar>::Matrix4;
 
   /** \brief Empty constructor. */
-  IterativeClosestPointScale(std::shared_ptr<TransformationEstimation<PointSource, PointTarget, Scalar>> pTransformationEstimation)
+  IterativeClosestPointScale(boost::shared_ptr<TransformationEstimation<PointSource, PointTarget, Scalar>> pTransformationEstimation)
   : x_idx_offset_(0)
   , y_idx_offset_(0)
   , z_idx_offset_(0)
